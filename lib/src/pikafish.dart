@@ -87,6 +87,8 @@ class Pikafish {
       throw StateError('Pikafish is not ready ($stateValue)');
     }
 
+    print('engine=< $line');
+
     final pointer = '$line\n'.toNativeUtf8();
     nativeStdinWrite(pointer);
     calloc.free(pointer);
@@ -114,7 +116,7 @@ class Pikafish {
 
 /// Creates a C++ engine asynchronously.
 ///
-/// This method is different from the factory method [new Pikafish] that
+/// This method is different from the factory method [Pikafish.new] that
 /// it will wait for the engine to be ready before returning the instance.
 Future<Pikafish> pikafishAsync() {
   //
