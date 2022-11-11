@@ -1,0 +1,3 @@
+[submodule "ios/Pikafish"]
+	path = ios/Pikafish
+	url = https://github.com/hezhaoyun/Pikafish.git
