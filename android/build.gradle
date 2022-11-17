@@ -32,7 +32,8 @@ android {
         minSdkVersion 16
         externalNativeBuild {
             cmake {
-                cppFlags "-std=c++17"
+                arguments "-DANDROID_ARM_NEON=ON"
+                cppFlags "-std=c++17", "-DNDEBUG"
             }
         }
     }
