@@ -87,7 +87,7 @@ class Pikafish {
       throw StateError('Pikafish is not ready ($stateValue)');
     }
 
-    print('engine=< $line');
+    debugPrint('engine=< $line');
 
     final pointer = '$line\n'.toNativeUtf8();
     nativeStdinWrite(pointer);

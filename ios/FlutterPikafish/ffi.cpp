@@ -30,44 +30,44 @@ char buffer[80];
 
 int pikafish_init()
 {
-  pipe(pipes[PARENT_READ_PIPE]);
-  pipe(pipes[PARENT_WRITE_PIPE]);
-
-  return 0;
+    pipe(pipes[PARENT_READ_PIPE]);
+    pipe(pipes[PARENT_WRITE_PIPE]);
+    
+    return 0;
 }
 
 int pikafish_main()
 {
-  dup2(CHILD_READ_FD, STDIN_FILENO);
-  dup2(CHILD_WRITE_FD, STDOUT_FILENO);
-
-  int argc = 1;
-  char *argv[] = {""};
-  int exitCode = engineMain(argc, argv);
-
-  std::cout << Bye << std::flush;
-
-  return exitCode;
+    dup2(CHILD_READ_FD, STDIN_FILENO);
+    dup2(CHILD_WRITE_FD, STDOUT_FILENO);
+    
+    int argc = 1;
+    char *argv[] = {""};
+    int exitCode = engineMain(argc, argv);
+    
+    std::cout << Bye << std::flush;
+    
+    return exitCode;
 }
 
 ssize_t pikafish_stdin_write(char *data)
 {
-  return write(PARENT_WRITE_FD, data, strlen(data));
+    return write(PARENT_WRITE_FD, data, strlen(data));
 }
 
 char *pikafish_stdout_read()
 {
-  ssize_t count = read(PARENT_READ_FD, buffer, sizeof(buffer) - 1);
-  if (count < 0)
-  {
-    return NULL;
-  }
-
-  buffer[count] = 0;
-  if (strcmp(buffer, Bye) == 0)
-  {
-    return NULL;
-  }
-
-  return buffer;
+    ssize_t count = read(PARENT_READ_FD, buffer, sizeof(buffer) - 1);
+    if (count < 0)
+    {
+        return NULL;
+    }
+    
+    buffer[count] = 0;
+    if (strcmp(buffer, Bye) == 0)
+    {
+        return NULL;
+    }
+    
+    return buffer;
 }
