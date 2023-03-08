@@ -12,8 +12,3 @@ add_library(
     ../ios/FlutterPikafish/ffi.cpp
     ${cppPaths}
 )
-
-# file(DOWNLOAD
-# https://tests.pikafishchess.org/api/nn/nn-3475407dc199.nnue
-# ${CMAKE_BINARY_DIR}/nn-3475407dc199.nnue
-# )
