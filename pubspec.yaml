@@ -1,7 +1,7 @@
 name: pikafish_engine
-description: A new Flutter plugin project.
-version: 0.0.1
-homepage: mdevs.cn
+description: The Flutter plugin for PIKAFISH (base on Stockfish), A well-known Chinese chess open source engine.
+version: 1.0.1
+homepage: https://mdevs.cn
 
 environment:
   sdk: '>=2.18.2 <3.0.0'
