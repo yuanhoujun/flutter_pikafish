@@ -10,7 +10,7 @@ Add dependency
 Update dependencies section inside pubspec.yaml:
 
 ``` yaml
-  flutter_pikafish: ^1.2.0
+  flutter_pikafish: ^1.0.1
 ```
 
 Init engine
