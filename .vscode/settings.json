@@ -1,3 +1,6 @@
 {
-    "commentTranslate.source": "Google"
+    "commentTranslate.source": "Google",
+    "cSpell.enableFiletypes": [
+        "!markdown"
+    ]
 }
