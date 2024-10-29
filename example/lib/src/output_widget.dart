@@ -50,15 +50,8 @@ class _OutputState extends State<OutputWidget> {
 
   void _subscribe() {
     subscription = widget.stdout.listen((line) {
-      if (line.startsWith('info')) {
-        if (items.isNotEmpty && items.first.infoCount != null) {
-          items.first.infoCount?.value++;
-        } else {
-          items.insert(0, _OutputItem.info());
-        }
-      } else {
-        items.insert(0, _OutputItem.line(line));
-      }
+      items.insert(0, _OutputItem.line(line));
+
       setState(() {});
     });
   }
@@ -89,8 +82,6 @@ class _OutputState extends State<OutputWidget> {
         ),
         child: Text(
           data,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             fontFeatures: [FontFeature.tabularFigures()],
             fontFamily: 'Monospace',
