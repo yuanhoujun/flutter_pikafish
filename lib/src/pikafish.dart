@@ -33,7 +33,7 @@ class Pikafish {
         if (message is String) {
           _stdoutController.sink.add(message);
         } else {
-          debugPrint('[pikafish] The stdout isolate sent $message');
+          prt('[pikafish] The stdout isolate sent $message');
         }
       },
     );
@@ -49,7 +49,7 @@ class Pikafish {
         }
       },
       onError: (error) {
-        debugPrint('[pikafish] The init isolate encountered an error $error');
+        prt('[pikafish] The init isolate encountered an error $error');
         _cleanUp(1);
       },
     );
@@ -87,7 +87,7 @@ class Pikafish {
       throw StateError('Pikafish is not ready ($stateValue)');
     }
 
-    debugPrint('engine=< $line');
+    prt('engine=< $line');
 
     final pointer = '$line\n'.toNativeUtf8();
     nativeStdinWrite(pointer);
@@ -150,7 +150,7 @@ void _isolateMain(SendPort mainPort) {
   final exitCode = nativeMain();
   mainPort.send(exitCode);
 
-  debugPrint('[pikafish] nativeMain returns $exitCode');
+  prt('[pikafish] nativeMain returns $exitCode');
 }
 
 void _isolateStdout(SendPort stdoutPort) {
@@ -162,7 +162,7 @@ void _isolateStdout(SendPort stdoutPort) {
     final pointer = nativeStdoutRead();
 
     if (pointer.address == 0) {
-      debugPrint('[pikafish] nativeStdoutRead returns NULL');
+      prt('[pikafish] nativeStdoutRead returns NULL');
       return;
     }
 
@@ -182,23 +182,29 @@ Future<bool> _spawnIsolates(List<SendPort> mainAndStdout) async {
   final initResult = nativeInit();
 
   if (initResult != 0) {
-    debugPrint('[pikafish] initResult=$initResult');
+    prt('[pikafish] initResult=$initResult');
     return false;
   }
 
   try {
     await Isolate.spawn(_isolateStdout, mainAndStdout[1]);
   } catch (error) {
-    debugPrint('[pikafish] Failed to spawn stdout isolate: $error');
+    prt('[pikafish] Failed to spawn stdout isolate: $error');
     return false;
   }
 
   try {
     await Isolate.spawn(_isolateMain, mainAndStdout[0]);
   } catch (error) {
-    debugPrint('[pikafish] Failed to spawn main isolate: $error');
+    prt('[pikafish] Failed to spawn main isolate: $error');
     return false;
   }
 
   return true;
+}
+
+void prt(String message) {
+  if (kDebugMode) {
+    debugPrint(message);
+  }
 }
