@@ -45,4 +45,5 @@ android {
             path "CMakeLists.txt"
         }
     }
+    namespace "cn.chessroad.pikafish_engine"
 }
