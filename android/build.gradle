@@ -49,7 +49,7 @@ android {
     }
     namespace "cn.chessroad.pikafish_engine"
 
-      // 添加 splits 配置
+    // 添加 splits 配置
     splits {
         abi {
             enable true
