@@ -36,6 +36,8 @@ android {
                 cppFlags "-std=c++17", "-DNDEBUG"
             }
         }
+        // 设置 NDK 版本
+        // ndkVersion "21.4.7075529"
     }
     lintOptions {
         disable 'InvalidPackage'
@@ -46,4 +48,14 @@ android {
         }
     }
     namespace "cn.chessroad.pikafish_engine"
+
+      // 添加 splits 配置
+    splits {
+        abi {
+            enable true
+            reset()
+            include 'armeabi-v7a', 'arm64-v8a'
+            universalApk false
+        }
+    }
 }
