@@ -1,4 +1,4 @@
 [submodule "ios/Pikafish"]
 	path = ios/Pikafish
 	url = https://github.com/yuanhoujun/Pikafish.git
-	branch = chessroad
+	branch = develop
