@@ -158,21 +158,25 @@ void _isolateStdout(SendPort stdoutPort) {
   String previous = '';
 
   while (true) {
-    //
-    final pointer = nativeStdoutRead();
+    try {
+      //
+      final pointer = nativeStdoutRead();
 
-    if (pointer.address == 0) {
-      prt('[pikafish] nativeStdoutRead returns NULL');
-      return;
-    }
+      if (pointer.address == 0) {
+        prt('[pikafish] nativeStdoutRead returns NULL');
+        return;
+      }
 
-    final data = previous + pointer.toDartString();
-    final lines = data.split('\n');
+      final data = previous + pointer.toDartString();
+      final lines = data.split('\n');
 
-    previous = lines.removeLast();
+      previous = lines.removeLast();
 
-    for (final line in lines) {
-      stdoutPort.send(line);
+      for (final line in lines) {
+        stdoutPort.send(line);
+      }
+    } catch (e) {
+      prt('[pikafish] The stdout isolate encountered an error $e');
     }
   }
 }
