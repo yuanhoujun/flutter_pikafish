@@ -58,4 +58,15 @@ android {
             universalApk false
         }
     }
+
+    buildTypes {
+        debug {
+        }
+        
+        release {
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
 }
