@@ -1,0 +1,4 @@
+# melos_managed_dependency_overrides: pikafish_engine
+dependency_overrides:
+  pikafish_engine:
+    path: ..
