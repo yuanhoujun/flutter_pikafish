@@ -29,7 +29,7 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
     defaultConfig {
-        minSdkVersion 16
+        minSdkVersion 21
         externalNativeBuild {
             cmake {
                 arguments "-DANDROID_ARM_NEON=ON"
@@ -54,7 +54,7 @@ android {
         abi {
             enable true
             reset()
-            include 'armeabi-v7a', 'arm64-v8a'
+            include 'arm64-v8a'
             universalApk false
         }
     }

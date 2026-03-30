@@ -22,7 +22,7 @@
 #define CHILD_READ_FD (pipes[PARENT_WRITE_PIPE][READ_FD])
 #define CHILD_WRITE_FD (pipes[PARENT_READ_PIPE][WRITE_FD])
 
-int engineMain(int, char **);
+int main(int, char **);
 
 const char *Bye = "bye\n";
 int pipes[NUM_PIPES][2];
@@ -43,7 +43,7 @@ int pikafish_main()
     
     int argc = 1;
     char *argv[] = {""};
-    int exitCode = engineMain(argc, argv);
+    int exitCode = main(argc, argv);
     
     std::cout << Bye << std::flush;
     

@@ -1,5 +1,7 @@
 import 'dart:io';
+import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -114,6 +116,20 @@ class _AppState extends State<MyApp> {
       await nnueFile.writeAsBytes(bytes.buffer.asUint8List(), flush: true);
     }
 
+    prt(await md5Sum(nnueFile) ?? "");
+
     pikafish.stdin = 'setoption name EvalFile value ${nnueFile.path}';
+  }
+}
+
+Future<String?> md5Sum(File file) async {
+  if (!file.existsSync()) return null;
+
+  try {
+    final bytes = await file.readAsBytes();
+    final digest = md5.convert(bytes);
+    return digest.toString();
+  } catch (e) {
+    return null;
   }
 }
