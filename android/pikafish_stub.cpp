@@ -1,31 +1,31 @@
+#include <cerrno>
 #include <sys/types.h>
 
-#ifdef __cplusplus
 extern "C" __attribute__((visibility("default"))) __attribute__((used))
-#endif
-int
-pikafish_init();
+int pikafish_init()
+{
+    return ENOTSUP;
+}
 
-#ifdef __cplusplus
 extern "C" __attribute__((visibility("default"))) __attribute__((used))
-#endif
-int
-pikafish_main();
+int pikafish_main()
+{
+    return ENOTSUP;
+}
 
-#ifdef __cplusplus
 extern "C" __attribute__((visibility("default"))) __attribute__((used))
-#endif
-ssize_t
-pikafish_stdin_write(char *data);
+ssize_t pikafish_stdin_write(char *)
+{
+    return -1;
+}
 
-#ifdef __cplusplus
 extern "C" __attribute__((visibility("default"))) __attribute__((used))
-#endif
-char *
-pikafish_stdout_read();
+char *pikafish_stdout_read()
+{
+    return nullptr;
+}
 
-#ifdef __cplusplus
 extern "C" __attribute__((visibility("default"))) __attribute__((used))
-#endif
-void
-pikafish_shutdown();
+void pikafish_shutdown()
+{
+}

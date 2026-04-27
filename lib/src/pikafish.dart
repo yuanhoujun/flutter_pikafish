@@ -21,6 +21,7 @@ class Pikafish {
 
   late StreamSubscription _mainSubscription;
   late StreamSubscription _stdoutSubscription;
+  bool _cleanedUp = false;
 
   Pikafish._({this.completer}) {
     //
@@ -31,6 +32,7 @@ class Pikafish {
     _stdoutSubscription = _stdoutPort.listen(
       (message) {
         if (message is String) {
+          if (_stdoutController.isClosed) return;
           _stdoutController.sink.add(message);
         } else {
           prt('[pikafish] The stdout isolate sent $message');
@@ -46,6 +48,8 @@ class Pikafish {
 
         if (state == PikafishState.ready) {
           completer?.complete(this);
+        } else {
+          _cleanUp(1);
         }
       },
       onError: (error) {
@@ -96,12 +100,22 @@ class Pikafish {
 
   /// Stops the C++ engine.
   void dispose() {
-    stdin = 'quit';
+    if (_state.value == PikafishState.ready) {
+      stdin = 'quit';
+    } else {
+      _cleanUp(0);
+    }
   }
 
   void _cleanUp(int exitCode) {
-    //
-    _stdoutController.close();
+    if (_cleanedUp) return;
+    _cleanedUp = true;
+
+    nativeShutdown();
+
+    if (!_stdoutController.isClosed) {
+      _stdoutController.close();
+    }
 
     _mainSubscription.cancel();
     _stdoutSubscription.cancel();
@@ -109,6 +123,11 @@ class Pikafish {
     _state._setValue(
       exitCode == 0 ? PikafishState.disposed : PikafishState.error,
     );
+
+    if (completer?.isCompleted == false) {
+      completer
+          ?.completeError(StateError('Pikafish exited with code $exitCode'));
+    }
 
     _instance = null;
   }

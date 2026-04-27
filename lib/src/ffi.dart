@@ -24,3 +24,7 @@ final int Function(Pointer<Utf8>) nativeStdinWrite = _nativeLib
 final Pointer<Utf8> Function() nativeStdoutRead = _nativeLib
     .lookup<NativeFunction<Pointer<Utf8> Function()>>('pikafish_stdout_read')
     .asFunction();
+
+final void Function() nativeShutdown = _nativeLib
+    .lookup<NativeFunction<Void Function()>>('pikafish_shutdown')
+    .asFunction();

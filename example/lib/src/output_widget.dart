@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:pikafish_engine/pikafish_engine.dart';
 
@@ -97,10 +95,6 @@ class _OutputItem {
   //
   final ValueNotifier<int>? infoCount;
   final String? line;
-
-  _OutputItem.info()
-      : infoCount = ValueNotifier(1),
-        line = null;
 
   _OutputItem.line(this.line) : infoCount = null;
 }
