@@ -98,6 +98,33 @@ class Pikafish {
     calloc.free(pointer);
   }
 
+  /// Restarts the engine by disposing the current instance and creating a new one.
+  /// 
+  /// This is useful when you want to reset the engine state completely.
+  /// Returns a Future that completes with the new Pikafish instance.
+  static Future<Pikafish> restart() async {
+    //
+    if (_instance != null) {
+      // Send quit command to stop the engine gracefully (only if ready)
+      try {
+        if (_instance!._state.value == PikafishState.ready) {
+          _instance!.stdin = 'quit';
+        }
+      } catch (e) {
+        // Ignore errors during quit - engine might already be shutting down
+      }
+      
+      // Wait for the engine threads to fully exit (prevents mutex crashes)
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Forcefully clear the instance reference
+      _instance = null;
+    }
+    
+    // Create a new instance
+    return pikafishAsync();
+  }
+
   /// Stops the C++ engine.
   void dispose() {
     if (_state.value == PikafishState.ready) {
