@@ -1,16 +1,20 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 
 import 'ffi.dart';
+import 'official_android_engine.dart';
+import 'pikafish_engine_mode.dart';
 import 'pikafish_state.dart';
 
 /// A wrapper for C++ engine.
 class Pikafish {
   //
   final Completer<Pikafish>? completer;
+  final PikafishEngineMode engineMode;
 
   final _state = _PikafishState();
 
@@ -22,8 +26,9 @@ class Pikafish {
   late StreamSubscription _mainSubscription;
   late StreamSubscription _stdoutSubscription;
   bool _cleanedUp = false;
+  OfficialAndroidEngine? _officialAndroidEngine;
 
-  Pikafish._({this.completer}) {
+  Pikafish._({this.completer, required this.engineMode}) {
     //
     _mainSubscription = _mainPort.listen(
       (message) => _cleanUp(message is int ? message : 1),
@@ -40,7 +45,7 @@ class Pikafish {
       },
     );
 
-    compute(_spawnIsolates, [_mainPort.sendPort, _stdoutPort.sendPort]).then(
+    _start().then(
       (success) {
         //
         final state = success ? PikafishState.ready : PikafishState.error;
@@ -65,13 +70,13 @@ class Pikafish {
   ///
   /// This may throws a [StateError] if an active instance is being used.
   /// Owner must [dispose] it before a new instance can be created.
-  factory Pikafish() {
+  factory Pikafish({PikafishEngineMode engineMode = PikafishEngineMode.auto}) {
     //
     if (_instance != null) {
       throw StateError('Multiple instances are not supported, yet.');
     }
 
-    _instance = Pikafish._();
+    _instance = Pikafish._(engineMode: engineMode);
 
     return _instance!;
   }
@@ -93,9 +98,14 @@ class Pikafish {
 
     prt('engine=< $line');
 
-    final pointer = '$line\n'.toNativeUtf8();
-    nativeStdinWrite(pointer);
-    calloc.free(pointer);
+    final officialEngine = _officialAndroidEngine;
+    if (officialEngine != null) {
+      officialEngine.write(line);
+    } else {
+      final pointer = '$line\n'.toNativeUtf8();
+      nativeStdinWrite(pointer);
+      calloc.free(pointer);
+    }
   }
 
   /// Stops the C++ engine.
@@ -111,7 +121,12 @@ class Pikafish {
     if (_cleanedUp) return;
     _cleanedUp = true;
 
-    nativeShutdown();
+    final officialEngine = _officialAndroidEngine;
+    if (officialEngine != null) {
+      officialEngine.dispose();
+    } else {
+      nativeShutdown();
+    }
 
     if (!_stdoutController.isClosed) {
       _stdoutController.close();
@@ -131,20 +146,48 @@ class Pikafish {
 
     _instance = null;
   }
+
+  Future<bool> _start() async {
+    if (Platform.isAndroid) {
+      final engine = OfficialAndroidEngine();
+      _officialAndroidEngine = engine;
+      _stdoutSubscription.cancel();
+      _stdoutSubscription = engine.stdout.listen(
+        (line) {
+          if (!_stdoutController.isClosed) {
+            _stdoutController.sink.add(line);
+          }
+        },
+        onError: (Object error) {
+          prt('[pikafish] Official Android engine output error: $error');
+          _cleanUp(1);
+        },
+        onDone: () => _cleanUp(0),
+      );
+      return engine.start(engineMode);
+    }
+
+    return compute(_spawnIsolates, [_mainPort.sendPort, _stdoutPort.sendPort]);
+  }
 }
 
 /// Creates a C++ engine asynchronously.
 ///
 /// This method is different from the factory method [Pikafish.new] that
 /// it will wait for the engine to be ready before returning the instance.
-Future<Pikafish> pikafishAsync() {
+Future<Pikafish> pikafishAsync({
+  PikafishEngineMode engineMode = PikafishEngineMode.auto,
+}) {
   //
   if (Pikafish._instance != null) {
     return Future.error(StateError('Only one instance can be used at a time'));
   }
 
   final completer = Completer<Pikafish>();
-  Pikafish._instance = Pikafish._(completer: completer);
+  Pikafish._instance = Pikafish._(
+    completer: completer,
+    engineMode: engineMode,
+  );
 
   return completer.future;
 }

@@ -18,8 +18,14 @@ Init engine
 ``` dart
 import 'package:pikafish_engine/pikafish_engine.dart';
 
-// create a new instance
+// Android automatically selects the official DotProd or ARMv8 executable.
+// Other platforms continue to use FFI.
 final pikafish = Pikafish();
+
+// A backend can also be selected explicitly:
+// Pikafish(engineMode: PikafishEngineMode.officialArmv8);
+// Pikafish(engineMode: PikafishEngineMode.officialDotProd);
+// iOS always uses the bundled FFI engine.
 
 // state is a ValueListenable<PikafishState>
 print(pikafish.state.value); # PikafishState.starting
@@ -27,6 +33,31 @@ print(pikafish.state.value); # PikafishState.starting
 // the engine takes a few moment to start
 await Future.delayed(...)
 print(pikafish.state.value); # PikafishState.ready
+```
+
+The official Android executable backend requires native library extraction.
+Enable it in the consuming application's `android/app/build.gradle.kts`:
+
+```kotlin
+android {
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+}
+```
+
+Groovy `build.gradle` equivalent:
+
+```groovy
+android {
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
+}
 ```
 
 UCI command 

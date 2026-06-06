@@ -1,11 +1,8 @@
 import 'dart:ffi';
-import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 
-final _nativeLib = Platform.isAndroid
-    ? DynamicLibrary.open('libpikafish.so')
-    : DynamicLibrary.process();
+final _nativeLib = DynamicLibrary.process();
 
 final int Function() nativeInit = _nativeLib
     .lookup<NativeFunction<Int32 Function()>>('pikafish_init')

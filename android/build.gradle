@@ -30,21 +30,16 @@ android {
     }
     defaultConfig {
         minSdkVersion 21
-        externalNativeBuild {
-            cmake {
-                arguments "-DANDROID_ARM_NEON=ON"
-            }
+    }
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging true
         }
-        // 设置 NDK 版本
-        // ndkVersion "21.4.7075529"
+        doNotStrip '**/libpikafish_armv8_exec.so'
+        doNotStrip '**/libpikafish_dotprod_exec.so'
     }
     lintOptions {
         disable 'InvalidPackage'
-    }
-    externalNativeBuild {
-        cmake {
-            path "CMakeLists.txt"
-        }
     }
     namespace "cn.chessroad.pikafish_engine"
 }
