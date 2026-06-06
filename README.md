@@ -35,8 +35,20 @@ await Future.delayed(...)
 print(pikafish.state.value); # PikafishState.ready
 ```
 
-The official Android executable backend requires native library extraction.
-Enable it in the consuming application's `android/app/build.gradle.kts`:
+## Android packaging requirement
+
+The official Android Pikafish files are standalone executables, even though
+they use the `.so` extension so they can be bundled as native libraries.
+They are launched with `ProcessBuilder`, rather than loaded with
+`System.loadLibrary`.
+
+The consuming Android application must enable legacy native library packaging.
+This makes Android extract the bundled engine files into `nativeLibraryDir`
+with executable permissions. This setting must be added to the consuming
+application because the plugin's own Gradle configuration cannot enable it for
+the final APK.
+
+Add the following to `android/app/build.gradle.kts`:
 
 ```kotlin
 android {
@@ -58,6 +70,13 @@ android {
         }
     }
 }
+```
+
+After changing this setting, run `flutter clean` and reinstall the application.
+Without it, engine startup fails with an error similar to:
+
+```text
+PlatformException(not_executable, Bundled engine is not executable: .../libpikafish_dotprod_exec.so)
 ```
 
 UCI command 

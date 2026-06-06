@@ -153,27 +153,36 @@ public class PikafishEnginePlugin
           new BufferedReader(new InputStreamReader(runningProcess.getInputStream()))) {
         String line;
         while ((line = reader.readLine()) != null) {
-          EventChannel.EventSink sink = eventSink;
-          if (sink != null) {
-            String outputLine = line;
-            mainHandler.post(() -> sink.success(outputLine));
-          }
+          String outputLine = line;
+          mainHandler.post(() -> sendOutputIfCurrent(runningProcess, outputLine));
         }
         runningProcess.waitFor();
       } catch (IOException | InterruptedException error) {
         Thread.currentThread().interrupt();
-        EventChannel.EventSink sink = eventSink;
-        if (sink != null) {
-          mainHandler.post(() -> sink.error("output_failed", error.getMessage(), null));
-        }
+        mainHandler.post(() -> sendErrorIfCurrent(runningProcess, error));
       } finally {
-        EventChannel.EventSink sink = eventSink;
-        if (sink != null) {
-          mainHandler.post(sink::endOfStream);
-        }
+        mainHandler.post(() -> endOutputIfCurrent(runningProcess));
       }
     }, "pikafish-output");
     outputThread.start();
+  }
+
+  private synchronized void sendOutputIfCurrent(Process runningProcess, String line) {
+    if (process == runningProcess && eventSink != null) {
+      eventSink.success(line);
+    }
+  }
+
+  private synchronized void sendErrorIfCurrent(Process runningProcess, Exception error) {
+    if (process == runningProcess && eventSink != null) {
+      eventSink.error("output_failed", error.getMessage(), null);
+    }
+  }
+
+  private synchronized void endOutputIfCurrent(Process runningProcess) {
+    if (process == runningProcess && eventSink != null) {
+      eventSink.endOfStream();
+    }
   }
 
   private synchronized void disposeProcess() {

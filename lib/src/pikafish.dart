@@ -25,6 +25,7 @@ class Pikafish {
 
   late StreamSubscription _mainSubscription;
   late StreamSubscription _stdoutSubscription;
+  final _exitCompleter = Completer<void>();
   bool _cleanedUp = false;
   OfficialAndroidEngine? _officialAndroidEngine;
 
@@ -108,6 +109,22 @@ class Pikafish {
     }
   }
 
+  /// Restarts the engine and returns the new ready instance.
+  ///
+  /// The current Android engine variant is preserved unless [engineMode] is
+  /// provided. On iOS, [engineMode] is ignored because iOS always uses FFI.
+  static Future<Pikafish> restart({PikafishEngineMode? engineMode}) async {
+    final current = _instance;
+    final nextMode =
+        engineMode ?? current?.engineMode ?? PikafishEngineMode.auto;
+
+    if (current != null) {
+      await current._shutdownForRestart();
+    }
+
+    return pikafishAsync(engineMode: nextMode);
+  }
+
   /// Stops the C++ engine.
   void dispose() {
     if (_state.value == PikafishState.ready) {
@@ -145,6 +162,31 @@ class Pikafish {
     }
 
     _instance = null;
+
+    if (!_exitCompleter.isCompleted) {
+      _exitCompleter.complete();
+    }
+  }
+
+  Future<void> _shutdownForRestart() async {
+    final officialEngine = _officialAndroidEngine;
+    if (officialEngine != null) {
+      await officialEngine.dispose();
+      _cleanUp(0);
+      return;
+    }
+
+    if (_state.value == PikafishState.ready) {
+      stdin = 'quit';
+      try {
+        await _exitCompleter.future.timeout(const Duration(seconds: 2));
+        return;
+      } on TimeoutException {
+        // Fall through and close the FFI pipes if the engine did not exit.
+      }
+    }
+
+    _cleanUp(0);
   }
 
   Future<bool> _start() async {
