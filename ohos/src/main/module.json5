@@ -1,0 +1,10 @@
+{
+  "module": {
+    "name": "pikafish_engine",
+    "type": "har",
+    "deviceTypes": [
+      "default",
+      "tablet"
+    ]
+  }
+}

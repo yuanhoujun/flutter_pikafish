@@ -9,5 +9,6 @@
         "istream": "cpp",
         "locale": "cpp",
         "ostream": "cpp"
-    }
+    },
+    "dart.flutterSdkPath": ".fvm/versions/3.35.8-ohos"
 }

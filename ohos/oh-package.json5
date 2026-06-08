@@ -1,0 +1,13 @@
+{
+  "modelVersion": "6.0.0",
+  "name": "pikafish_engine",
+  "version": "1.0.3",
+  "description": "Flutter plugin for Pikafish on OpenHarmony/HarmonyOS.",
+  "main": "index.ets",
+  "author": "",
+  "license": "GPL-3.0-or-later",
+  "dependencies": {
+    "libpikafish.so": "file:./src/main/cpp/types/libpikafish",
+    "@ohos/flutter_ohos": "file:./har/flutter.har"
+  }
+}

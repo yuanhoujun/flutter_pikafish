@@ -25,6 +25,13 @@ class _AppState extends State<MyApp> {
   void initState() {
     super.initState();
     pikafish = Pikafish();
+    pikafish.state.addListener(_setupNnueWhenReady);
+  }
+
+  @override
+  void dispose() {
+    pikafish.state.removeListener(_setupNnueWhenReady);
+    super.dispose();
   }
 
   @override
@@ -104,19 +111,37 @@ class _AppState extends State<MyApp> {
   }
 
   void setupNnue() async {
+    await _setupNnue();
+  }
+
+  void _setupNnueWhenReady() {
+    if (pikafish.state.value != PikafishState.ready) return;
+    pikafish.state.removeListener(_setupNnueWhenReady);
+    _setupNnue(pingReady: true);
+  }
+
+  Future<void> _setupNnue({bool pingReady = false}) async {
     //
     final appDocDir = await getApplicationDocumentsDirectory();
     final nnueFile = File('${appDocDir.path}/pikafish.nnue');
+    final assetBytes = await rootBundle.load('assets/pikafish.nnue');
+    final assetData = assetBytes.buffer.asUint8List();
+    final assetMd5 = md5.convert(assetData).toString();
 
-    if (!(await nnueFile.exists())) {
+    if (!(await nnueFile.exists()) || await md5Sum(nnueFile) != assetMd5) {
       await nnueFile.create(recursive: true);
-      final bytes = await rootBundle.load('assets/pikafish.nnue');
-      await nnueFile.writeAsBytes(bytes.buffer.asUint8List(), flush: true);
+      await nnueFile.writeAsBytes(assetData, flush: true);
     }
 
     prt(await md5Sum(nnueFile) ?? "");
 
     pikafish.stdin = 'setoption name EvalFile value ${nnueFile.path}';
+    if (pingReady) {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      pikafish.stdin = 'isready';
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      pikafish.stdin = 'go movetime 300';
+    }
   }
 }
 

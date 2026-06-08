@@ -1,0 +1,6 @@
+{
+  "name": "libpikafish.so",
+  "types": "./Index.d.ts",
+  "version": "1.0.3",
+  "description": "Pikafish native engine library."
+}

@@ -5,13 +5,16 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 0.0.1
 
 environment:
-  sdk: '>=2.18.2 <3.0.0'
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
     
-  path_provider: ^2.0.9
+  path_provider:
+    git:
+      url: https://gitcode.com/openharmony-sig/flutter_packages.git
+      path: "packages/path_provider/path_provider"
 
   pikafish_engine:
     path: ../
@@ -24,6 +27,12 @@ dev_dependencies:
     sdk: flutter
 
   flutter_lints: ^2.0.0
+
+dependency_overrides:
+  path_provider:
+    git:
+      url: https://gitcode.com/openharmony-sig/flutter_packages.git
+      path: "packages/path_provider/path_provider"
 
 flutter:
   uses-material-design: true

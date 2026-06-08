@@ -14,6 +14,7 @@ Pod::Spec.new do |s|
   s.author           = { 'He Zhaoyun' => 'hezhaoyun@outlook.com' }
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*', 'Pikafish/src/**/*', 'FlutterPikafish/*'
+  s.exclude_files = 'Pikafish/src/universal/**/*'
   s.public_header_files = 'Classes/**/*.h'
   s.dependency 'Flutter'
   s.platform = :ios, '9.0'

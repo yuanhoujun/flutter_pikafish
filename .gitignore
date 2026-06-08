@@ -29,3 +29,7 @@ migrate_working_dir/
 .packages
 build/
 .vscode/
+.fvm/flutter_sdk
+.fvm/versions
+.fvm/release
+.fvm/version

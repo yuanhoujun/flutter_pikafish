@@ -11,6 +11,7 @@ if(ANDROID_ABI STREQUAL arm64-v8a)
         cppPaths
         "../ios/Pikafish/src/*.cpp"
     )
+    list(FILTER cppPaths EXCLUDE REGEX ".*/src/universal/.*")
 
     add_library(
         pikafish

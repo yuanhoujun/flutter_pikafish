@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 
-final _nativeLib = Platform.isAndroid
+final _nativeLib = Platform.isAndroid || Platform.isOhos
     ? DynamicLibrary.open('libpikafish.so')
     : DynamicLibrary.process();
 
