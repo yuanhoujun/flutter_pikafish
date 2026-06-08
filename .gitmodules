@@ -1,4 +1,4 @@
 [submodule "ios/Pikafish"]
 	path = ios/Pikafish
-	url = https://github.com/official-pikafish/Pikafish.git
-	branch = master
+	url = https://github.com/yuanhoujun/Pikafish_Ohos.git
+	branch = ohos-20260102
