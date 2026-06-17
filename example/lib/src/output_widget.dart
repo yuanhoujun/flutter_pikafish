@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:pikafish_engine/pikafish_engine.dart';
 
 class OutputWidget extends StatefulWidget {
   //
@@ -52,8 +51,6 @@ class _OutputState extends State<OutputWidget> {
       items.insert(0, _OutputItem.line(line));
 
       setState(() {});
-
-      prt("[pikafish] $line");
     });
   }
 

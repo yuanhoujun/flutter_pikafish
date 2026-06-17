@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:isolate';
 
@@ -7,6 +8,7 @@ import 'package:flutter/foundation.dart';
 
 import 'ffi.dart';
 import 'official_android_engine.dart';
+import 'official_desktop_engine.dart';
 import 'pikafish_engine_mode.dart';
 import 'pikafish_state.dart';
 
@@ -28,6 +30,7 @@ class Pikafish {
   final _exitCompleter = Completer<void>();
   bool _cleanedUp = false;
   OfficialAndroidEngine? _officialAndroidEngine;
+  OfficialDesktopEngine? _officialDesktopEngine;
 
   Pikafish._({this.completer, required this.engineMode}) {
     //
@@ -102,6 +105,9 @@ class Pikafish {
     final officialEngine = _officialAndroidEngine;
     if (officialEngine != null) {
       officialEngine.write(line);
+    } else if (_officialDesktopEngine != null) {
+      final desktopEngine = _officialDesktopEngine!;
+      desktopEngine.write(line);
     } else {
       final pointer = '$line\n'.toNativeUtf8();
       nativeStdinWrite(pointer);
@@ -111,7 +117,7 @@ class Pikafish {
 
   /// Restarts the engine and returns the new ready instance.
   ///
-  /// The current Android engine variant is preserved unless [engineMode] is
+  /// The current official engine variant is preserved unless [engineMode] is
   /// provided. On iOS, [engineMode] is ignored because iOS always uses FFI.
   static Future<Pikafish> restart({PikafishEngineMode? engineMode}) async {
     final current = _instance;
@@ -141,6 +147,9 @@ class Pikafish {
     final officialEngine = _officialAndroidEngine;
     if (officialEngine != null) {
       officialEngine.dispose();
+    } else if (_officialDesktopEngine != null) {
+      final desktopEngine = _officialDesktopEngine!;
+      desktopEngine.dispose();
     } else {
       nativeShutdown();
     }
@@ -176,6 +185,13 @@ class Pikafish {
       return;
     }
 
+    final desktopEngine = _officialDesktopEngine;
+    if (desktopEngine != null) {
+      await desktopEngine.dispose();
+      _cleanUp(0);
+      return;
+    }
+
     if (_state.value == PikafishState.ready) {
       stdin = 'quit';
       try {
@@ -202,6 +218,25 @@ class Pikafish {
         },
         onError: (Object error) {
           prt('[pikafish] Official Android engine output error: $error');
+          _cleanUp(1);
+        },
+        onDone: () => _cleanUp(0),
+      );
+      return engine.start(engineMode);
+    }
+
+    if (Platform.isWindows || Platform.isLinux) {
+      final engine = OfficialDesktopEngine();
+      _officialDesktopEngine = engine;
+      _stdoutSubscription.cancel();
+      _stdoutSubscription = engine.stdout.listen(
+        (line) {
+          if (!_stdoutController.isClosed) {
+            _stdoutController.sink.add(line);
+          }
+        },
+        onError: (Object error) {
+          prt('[pikafish] Official desktop engine output error: $error');
           _cleanUp(1);
         },
         onDone: () => _cleanUp(0),
@@ -313,6 +348,6 @@ Future<bool> _spawnIsolates(List<SendPort> mainAndStdout) async {
 
 void prt(String message) {
   if (kDebugMode) {
-    debugPrint(message);
+    developer.log(message, name: 'pikafish_engine');
   }
 }
