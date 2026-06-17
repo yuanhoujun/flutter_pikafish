@@ -33,3 +33,9 @@ flutter:
         pluginClass: PikafishEnginePlugin
       macos:
         pluginClass: PikafishEnginePlugin
+      windows:
+        dartPluginClass: PikafishEngineDartPlugin
+        dartFileName: src/pikafish_engine_dart_plugin.dart
+      linux:
+        dartPluginClass: PikafishEngineDartPlugin
+        dartFileName: src/pikafish_engine_dart_plugin.dart
