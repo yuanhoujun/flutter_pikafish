@@ -1,8 +1,10 @@
-#include <cerrno>
+#include <condition_variable>
 #include <cstring>
+#include <deque>
 #include <iostream>
-#include <stdio.h>
-#include <unistd.h>
+#include <mutex>
+#include <streambuf>
+#include <string>
 
 #include "../Pikafish/src/bitboard.h"
 #include "../Pikafish/src/position.h"
@@ -13,120 +15,203 @@
 
 #include "ffi.h"
 
-// https://jineshkj.wordpress.com/2006/12/22/how-to-capture-stdin-stdout-and-stderr-of-child-program/
-#define NUM_PIPES 2
-#define PARENT_WRITE_PIPE 0
-#define PARENT_READ_PIPE 1
-#define READ_FD 0
-#define WRITE_FD 1
-#define PARENT_READ_FD (pipes[PARENT_READ_PIPE][READ_FD])
-#define PARENT_WRITE_FD (pipes[PARENT_WRITE_PIPE][WRITE_FD])
-#define CHILD_READ_FD (pipes[PARENT_WRITE_PIPE][READ_FD])
-#define CHILD_WRITE_FD (pipes[PARENT_READ_PIPE][WRITE_FD])
-
 int main(int, char **);
 
+namespace
+{
 const char *Bye = "bye\n";
-int pipes[NUM_PIPES][2] = {{-1, -1}, {-1, -1}};
-char buffer[4096];
+char readBuffer[4096];
 
-void close_fd(int &fd)
+std::mutex inputMutex;
+std::condition_variable inputCondition;
+std::deque<char> inputQueue;
+
+std::mutex outputMutex;
+std::condition_variable outputCondition;
+std::deque<char> outputQueue;
+
+bool shutdownRequested = false;
+
+class InputBuffer : public std::streambuf
 {
-    if (fd >= 0)
+public:
+    int underflow() override
     {
-        close(fd);
-        fd = -1;
+        std::unique_lock<std::mutex> lock(inputMutex);
+        inputCondition.wait(lock, [] {
+            return shutdownRequested || !inputQueue.empty();
+        });
+
+        if (inputQueue.empty())
+        {
+            return traits_type::eof();
+        }
+
+        current = inputQueue.front();
+        inputQueue.pop_front();
+        setg(&current, &current, &current + 1);
+        return traits_type::to_int_type(current);
+    }
+
+private:
+    char current = 0;
+};
+
+class OutputBuffer : public std::streambuf
+{
+public:
+    int overflow(int ch) override
+    {
+        if (ch == traits_type::eof())
+        {
+            return traits_type::not_eof(ch);
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(outputMutex);
+            outputQueue.push_back(static_cast<char>(ch));
+        }
+        outputCondition.notify_one();
+        return ch;
+    }
+
+    std::streamsize xsputn(const char *s, std::streamsize n) override
+    {
+        {
+            std::lock_guard<std::mutex> lock(outputMutex);
+            for (std::streamsize i = 0; i < n; ++i)
+            {
+                outputQueue.push_back(s[i]);
+            }
+        }
+        outputCondition.notify_one();
+        return n;
+    }
+
+    int sync() override
+    {
+        outputCondition.notify_one();
+        return 0;
+    }
+};
+
+InputBuffer inputBuffer;
+OutputBuffer outputBuffer;
+std::streambuf *originalCin = nullptr;
+std::streambuf *originalCout = nullptr;
+
+void clearQueues()
+{
+    {
+        std::lock_guard<std::mutex> lock(inputMutex);
+        inputQueue.clear();
+    }
+    {
+        std::lock_guard<std::mutex> lock(outputMutex);
+        outputQueue.clear();
     }
 }
 
-void close_pipes()
+void pushOutput(const char *data)
 {
-    for (int pipeIndex = 0; pipeIndex < NUM_PIPES; ++pipeIndex)
+    if (data == nullptr)
     {
-        close_fd(pipes[pipeIndex][READ_FD]);
-        close_fd(pipes[pipeIndex][WRITE_FD]);
+        return;
     }
+
+    {
+        std::lock_guard<std::mutex> lock(outputMutex);
+        for (const char *cursor = data; *cursor != '\0'; ++cursor)
+        {
+            outputQueue.push_back(*cursor);
+        }
+    }
+    outputCondition.notify_one();
 }
+} // namespace
 
 int pikafish_init()
 {
-    close_pipes();
-
-    if (pipe(pipes[PARENT_READ_PIPE]) != 0)
-    {
-        close_pipes();
-        return errno == 0 ? -1 : errno;
-    }
-
-    if (pipe(pipes[PARENT_WRITE_PIPE]) != 0)
-    {
-        close_pipes();
-        return errno == 0 ? -1 : errno;
-    }
-
+    shutdownRequested = false;
+    clearQueues();
     return 0;
 }
 
 int pikafish_main()
 {
-    if (CHILD_READ_FD < 0 || CHILD_WRITE_FD < 0)
-    {
-        return EINVAL;
-    }
-
-    if (dup2(CHILD_READ_FD, STDIN_FILENO) < 0 || dup2(CHILD_WRITE_FD, STDOUT_FILENO) < 0)
-    {
-        return errno == 0 ? -1 : errno;
-    }
+    originalCin = std::cin.rdbuf(&inputBuffer);
+    originalCout = std::cout.rdbuf(&outputBuffer);
 
     int argc = 1;
     char arg0[] = "";
     char *argv[] = {arg0, NULL};
     int exitCode = main(argc, argv);
-    
-    std::cout << Bye << std::flush;
-    
+
+    if (originalCin != nullptr)
+    {
+        std::cin.rdbuf(originalCin);
+        originalCin = nullptr;
+    }
+    if (originalCout != nullptr)
+    {
+        std::cout.rdbuf(originalCout);
+        originalCout = nullptr;
+    }
+
+    pushOutput(Bye);
     return exitCode;
 }
 
 ssize_t pikafish_stdin_write(char *data)
 {
-    if (data == NULL || PARENT_WRITE_FD < 0)
+    if (data == NULL)
     {
         return -1;
     }
 
-    return write(PARENT_WRITE_FD, data, strlen(data));
+    const size_t length = strlen(data);
+    {
+        std::lock_guard<std::mutex> lock(inputMutex);
+        for (size_t i = 0; i < length; ++i)
+        {
+            inputQueue.push_back(data[i]);
+        }
+    }
+    inputCondition.notify_one();
+    return static_cast<ssize_t>(length);
 }
 
 char *pikafish_stdout_read()
 {
-    if (PARENT_READ_FD < 0)
+    std::unique_lock<std::mutex> lock(outputMutex);
+    outputCondition.wait(lock, [] {
+        return shutdownRequested || !outputQueue.empty();
+    });
+
+    if (outputQueue.empty())
     {
         return NULL;
     }
 
-    ssize_t count = -1;
-    do
+    size_t count = 0;
+    while (count < sizeof(readBuffer) - 1 && !outputQueue.empty())
     {
-        count = read(PARENT_READ_FD, buffer, sizeof(buffer) - 1);
-    } while (count < 0 && errno == EINTR);
+        readBuffer[count++] = outputQueue.front();
+        outputQueue.pop_front();
+    }
+    readBuffer[count] = 0;
 
-    if (count < 0)
+    if (strcmp(readBuffer, Bye) == 0)
     {
         return NULL;
     }
-    
-    buffer[count] = 0;
-    if (strcmp(buffer, Bye) == 0)
-    {
-        return NULL;
-    }
-    
-    return buffer;
+
+    return readBuffer;
 }
 
 void pikafish_shutdown()
 {
-    close_pipes();
+    shutdownRequested = true;
+    inputCondition.notify_all();
+    outputCondition.notify_all();
 }

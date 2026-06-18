@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
+import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
 
@@ -100,18 +102,21 @@ class Pikafish {
       throw StateError('Pikafish is not ready ($stateValue)');
     }
 
-    prt('engine=< $line');
-
     final officialEngine = _officialAndroidEngine;
     if (officialEngine != null) {
+      prt('engine=< $line');
       officialEngine.write(line);
     } else if (_officialDesktopEngine != null) {
+      prt('engine=< $line');
       final desktopEngine = _officialDesktopEngine!;
       desktopEngine.write(line);
     } else {
       final pointer = '$line\n'.toNativeUtf8();
-      nativeStdinWrite(pointer);
+      final result = nativeStdinWrite(pointer);
       calloc.free(pointer);
+      if (result < 0) {
+        throw StateError('nativeStdinWrite failed: $result');
+      }
     }
   }
 
@@ -294,7 +299,9 @@ void _isolateMain(SendPort mainPort) {
 
 void _isolateStdout(SendPort stdoutPort) {
   //
-  String previous = '';
+  final lineSink = _PikafishStdoutLineSink(stdoutPort);
+  final decoder =
+      const Utf8Decoder(allowMalformed: true).startChunkedConversion(lineSink);
 
   while (true) {
     try {
@@ -303,19 +310,52 @@ void _isolateStdout(SendPort stdoutPort) {
 
       if (pointer.address == 0) {
         prt('[pikafish] nativeStdoutRead returns NULL');
+        decoder.close();
         return;
       }
 
-      final data = previous + pointer.toDartString();
-      final lines = data.split('\n');
-
-      previous = lines.removeLast();
-
-      for (final line in lines) {
-        stdoutPort.send(line);
-      }
+      decoder.add(_readNativeBytes(pointer));
     } catch (e) {
       prt('[pikafish] The stdout isolate encountered an error $e');
+    }
+  }
+}
+
+Uint8List _readNativeBytes(Pointer<Utf8> pointer) {
+  final bytePointer = pointer.cast<Uint8>();
+  var length = 0;
+  while (bytePointer[length] != 0) {
+    length++;
+  }
+  return Uint8List.fromList(bytePointer.asTypedList(length));
+}
+
+class _PikafishStdoutLineSink extends StringConversionSinkBase {
+  _PikafishStdoutLineSink(this.stdoutPort);
+
+  final SendPort stdoutPort;
+  String _previous = '';
+
+  @override
+  void addSlice(String chunk, int start, int end, bool isLast) {
+    final data = _previous + chunk.substring(start, end);
+    final lines = data.split('\n');
+    _previous = lines.removeLast();
+
+    for (final line in lines) {
+      stdoutPort.send(line);
+    }
+
+    if (isLast) {
+      close();
+    }
+  }
+
+  @override
+  void close() {
+    if (_previous.isNotEmpty) {
+      stdoutPort.send(_previous);
+      _previous = '';
     }
   }
 }
