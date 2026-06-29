@@ -33,6 +33,10 @@ class Pikafish {
   bool _cleanedUp = false;
   OfficialAndroidEngine? _officialAndroidEngine;
   OfficialDesktopEngine? _officialDesktopEngine;
+  bool _disposed = false;
+  bool _threadedNativeEngine = false;
+  Timer? _nativeStdoutTimer;
+  String _nativeStdoutRemainder = '';
 
   Pikafish._({this.completer, required this.engineMode}) {
     //
@@ -53,6 +57,8 @@ class Pikafish {
 
     _start().then(
       (success) {
+        if (_cleanedUp) return;
+
         //
         final state = success ? PikafishState.ready : PikafishState.error;
         _state._setValue(state);
@@ -64,6 +70,8 @@ class Pikafish {
         }
       },
       onError: (error) {
+        if (_cleanedUp) return;
+
         prt('[pikafish] The init isolate encountered an error $error');
         _cleanUp(1);
       },
@@ -138,16 +146,50 @@ class Pikafish {
 
   /// Stops the C++ engine.
   void dispose() {
-    if (_state.value == PikafishState.ready) {
-      stdin = 'quit';
-    } else {
-      _cleanUp(0);
+    unawaited(disposeAsync());
+  }
+
+  Future<void> disposeAsync(
+      {Duration timeout = const Duration(seconds: 2)}) async {
+    _disposed = true;
+
+    if (_cleanedUp) {
+      return _exitCompleter.future;
     }
+
+    final officialEngine = _officialAndroidEngine;
+    if (officialEngine != null) {
+      await officialEngine.dispose();
+      _cleanUp(0);
+      return;
+    }
+
+    final desktopEngine = _officialDesktopEngine;
+    if (desktopEngine != null) {
+      await desktopEngine.dispose();
+      _cleanUp(0);
+      return;
+    }
+
+    if (_state.value == PikafishState.ready) {
+      try {
+        stdin = 'quit';
+        await _exitCompleter.future.timeout(timeout);
+        return;
+      } on Object {
+        // Fall through and force native shutdown below.
+      }
+    }
+
+    _cleanUp(0);
   }
 
   void _cleanUp(int exitCode) {
     if (_cleanedUp) return;
     _cleanedUp = true;
+
+    _nativeStdoutTimer?.cancel();
+    _nativeStdoutTimer = null;
 
     final officialEngine = _officialAndroidEngine;
     if (officialEngine != null) {
@@ -157,6 +199,17 @@ class Pikafish {
       desktopEngine.dispose();
     } else {
       nativeShutdown();
+      if (_threadedNativeEngine) {
+        nativeJoinThreaded();
+      }
+    }
+
+    if (_threadedNativeEngine) {
+      _drainNativeStdout();
+      if (_nativeStdoutRemainder.isNotEmpty && !_stdoutController.isClosed) {
+        _stdoutController.sink.add(_nativeStdoutRemainder);
+        _nativeStdoutRemainder = '';
+      }
     }
 
     if (!_stdoutController.isClosed) {
@@ -211,6 +264,8 @@ class Pikafish {
   }
 
   Future<bool> _start() async {
+    if (_disposed) return false;
+
     if (Platform.isAndroid) {
       final engine = OfficialAndroidEngine();
       _officialAndroidEngine = engine;
@@ -249,7 +304,65 @@ class Pikafish {
       return engine.start(engineMode);
     }
 
-    return compute(_spawnIsolates, [_mainPort.sendPort, _stdoutPort.sendPort]);
+    if (Platform.isMacOS || Platform.isIOS) {
+      final startResult = nativeStartThreaded();
+      if (startResult != 0) {
+        prt('[pikafish] nativeStartThreaded result=$startResult');
+        return false;
+      }
+
+      _threadedNativeEngine = true;
+      _startNativeStdoutPolling();
+      return true;
+    }
+
+    final success = await compute(
+      _spawnIsolates,
+      [_mainPort.sendPort, _stdoutPort.sendPort],
+    );
+    if (_disposed && success) {
+      nativeShutdown();
+      return false;
+    }
+
+    return success;
+  }
+
+  void _startNativeStdoutPolling() {
+    _nativeStdoutTimer?.cancel();
+    _nativeStdoutTimer = Timer.periodic(
+      const Duration(milliseconds: 16),
+      (_) {
+        if (_cleanedUp) return;
+
+        _drainNativeStdout();
+
+        if (nativeIsRunning() == 0) {
+          _drainNativeStdout();
+          _cleanUp(nativeExitCode());
+        }
+      },
+    );
+  }
+
+  void _drainNativeStdout() {
+    while (!_stdoutController.isClosed) {
+      final pointer = nativeStdoutTryRead();
+      if (pointer.address == 0) return;
+
+      final chunk = const Utf8Decoder(_allowMalformed: true).convert(
+        _readNativeBytes(pointer),
+      );
+      final data = _nativeStdoutRemainder + chunk;
+      final lines = data.split('\n');
+      _nativeStdoutRemainder = lines.removeLast();
+
+      for (final line in lines) {
+        if (!_stdoutController.isClosed) {
+          _stdoutController.sink.add(line);
+        }
+      }
+    }
   }
 }
 
@@ -289,19 +402,21 @@ class _PikafishState extends ChangeNotifier
   }
 }
 
-void _isolateMain(SendPort mainPort) {
-  //
+void _isolateMain(SendPort mainPort) async {
+  await _allowIsolateDebugCheckIn();
+
   final exitCode = nativeMain();
   mainPort.send(exitCode);
 
   prt('[pikafish] nativeMain returns $exitCode');
 }
 
-void _isolateStdout(SendPort stdoutPort) {
-  //
+void _isolateStdout(SendPort stdoutPort) async {
+  await _allowIsolateDebugCheckIn();
+
   final lineSink = _PikafishStdoutLineSink(stdoutPort);
   final decoder =
-      const Utf8Decoder(allowMalformed: true).startChunkedConversion(lineSink);
+      const Utf8Decoder(_allowMalformed: true).startChunkedConversion(lineSink);
 
   while (true) {
     try {
@@ -370,20 +485,52 @@ Future<bool> _spawnIsolates(List<SendPort> mainAndStdout) async {
   }
 
   try {
-    await Isolate.spawn(_isolateStdout, mainAndStdout[1]);
+    await _spawnNativeIsolate(
+      _isolateStdout,
+      mainAndStdout[1],
+      'pikafish_stdout',
+    );
   } catch (error) {
     prt('[pikafish] Failed to spawn stdout isolate: $error');
     return false;
   }
 
   try {
-    await Isolate.spawn(_isolateMain, mainAndStdout[0]);
+    await _spawnNativeIsolate(
+      _isolateMain,
+      mainAndStdout[0],
+      'pikafish_main',
+    );
   } catch (error) {
     prt('[pikafish] Failed to spawn main isolate: $error');
     return false;
   }
 
   return true;
+}
+
+Future<void> _spawnNativeIsolate(
+  void Function(SendPort) entryPoint,
+  SendPort port,
+  String debugName,
+) async {
+  final isolate = await Isolate.spawn(
+    entryPoint,
+    port,
+    debugName: debugName,
+    paused: kDebugMode,
+  );
+
+  if (kDebugMode) {
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    isolate.resume(isolate.pauseCapability!);
+  }
+}
+
+Future<void> _allowIsolateDebugCheckIn() {
+  return Future<void>.delayed(
+    kDebugMode ? const Duration(milliseconds: 100) : Duration.zero,
+  );
 }
 
 void prt(String message) {

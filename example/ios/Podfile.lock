@@ -1,29 +1,22 @@
 PODS:
   - Flutter (1.0.0)
-  - path_provider_foundation (0.0.1):
-    - Flutter
-    - FlutterMacOS
   - pikafish_engine (0.0.1):
     - Flutter
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
-  - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
   - pikafish_engine (from `.symlinks/plugins/pikafish_engine/ios`)
 
 EXTERNAL SOURCES:
   Flutter:
     :path: Flutter
-  path_provider_foundation:
-    :path: ".symlinks/plugins/path_provider_foundation/darwin"
   pikafish_engine:
     :path: ".symlinks/plugins/pikafish_engine/ios"
 
 SPEC CHECKSUMS:
-  Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
-  path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   pikafish_engine: 24bc76113fb8e7f7ec46943eb4fffe3069c37dd2
 
-PODFILE CHECKSUM: cf0c950f7e9a456b4e325f5b8fc0f98906a3705a
+PODFILE CHECKSUM: 53026eaf67b63baa2e316e457f9701dbdf33f41a
 
 COCOAPODS: 1.16.2
