@@ -350,7 +350,7 @@ class Pikafish {
       final pointer = nativeStdoutTryRead();
       if (pointer.address == 0) return;
 
-      final chunk = const Utf8Decoder(_allowMalformed: true).convert(
+      final chunk = const Utf8Decoder(allowMalformed: true).convert(
         _readNativeBytes(pointer),
       );
       final data = _nativeStdoutRemainder + chunk;
@@ -416,7 +416,7 @@ void _isolateStdout(SendPort stdoutPort) async {
 
   final lineSink = _PikafishStdoutLineSink(stdoutPort);
   final decoder =
-      const Utf8Decoder(_allowMalformed: true).startChunkedConversion(lineSink);
+      const Utf8Decoder(allowMalformed: true).startChunkedConversion(lineSink);
 
   while (true) {
     try {
