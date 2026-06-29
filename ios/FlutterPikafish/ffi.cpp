@@ -1,4 +1,5 @@
 #include <condition_variable>
+#include <chrono>
 #include <cstring>
 #include <deque>
 #include <iostream>
@@ -37,7 +38,7 @@ bool engineRunning = false;
 int engineExitCode = 0;
 
 std::mutex engineThreadMutex;
-std::thread engineThread;
+std::condition_variable engineThreadCondition;
 
 class InputBuffer : public std::streambuf
 {
@@ -220,11 +221,6 @@ int pikafish_start_threaded()
         return -1;
     }
 
-    if (engineThread.joinable())
-    {
-        engineThread.join();
-    }
-
     int initResult = pikafish_init();
     if (initResult != 0)
     {
@@ -232,14 +228,16 @@ int pikafish_start_threaded()
     }
 
     engineRunning = true;
-    engineThread = std::thread([] {
+    std::thread engineThread([] {
         int exitCode = pikafish_main();
         {
             std::lock_guard<std::mutex> lock(engineThreadMutex);
             engineExitCode = exitCode;
             engineRunning = false;
         }
+        engineThreadCondition.notify_all();
     });
+    engineThread.detach();
 
     return 0;
 }
@@ -294,11 +292,9 @@ int pikafish_exit_code()
 void pikafish_join_threaded()
 {
     std::unique_lock<std::mutex> lock(engineThreadMutex);
-    if (engineThread.joinable())
-    {
-        lock.unlock();
-        engineThread.join();
-    }
+    engineThreadCondition.wait_for(lock, std::chrono::seconds(2), [] {
+        return !engineRunning;
+    });
 }
 
 void pikafish_shutdown()
