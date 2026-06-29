@@ -24,14 +24,6 @@ DynamicLibrary _openNativeLibrary() {
   return DynamicLibrary.process();
 }
 
-final int Function() nativeInit = _nativeLibrary
-    .lookup<NativeFunction<Int32 Function()>>('pikafish_init')
-    .asFunction();
-
-final int Function() nativeMain = _nativeLibrary
-    .lookup<NativeFunction<Int32 Function()>>('pikafish_main')
-    .asFunction();
-
 final int Function() nativeStartThreaded = _nativeLibrary
     .lookup<NativeFunction<Int32 Function()>>('pikafish_start_threaded')
     .asFunction();
@@ -40,10 +32,6 @@ final int Function(Pointer<Utf8>) nativeStdinWrite = _nativeLibrary
     .lookup<NativeFunction<IntPtr Function(Pointer<Utf8>)>>(
       'pikafish_stdin_write',
     )
-    .asFunction();
-
-final Pointer<Utf8> Function() nativeStdoutRead = _nativeLibrary
-    .lookup<NativeFunction<Pointer<Utf8> Function()>>('pikafish_stdout_read')
     .asFunction();
 
 final Pointer<Utf8> Function() nativeStdoutTryRead = _nativeLibrary

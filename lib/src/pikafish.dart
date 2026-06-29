@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:ffi';
 import 'dart:io';
-import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
@@ -24,11 +23,7 @@ class Pikafish {
 
   final _stdoutController = StreamController<String>.broadcast();
 
-  final _mainPort = ReceivePort();
-  final _stdoutPort = ReceivePort();
-
-  late StreamSubscription _mainSubscription;
-  late StreamSubscription _stdoutSubscription;
+  StreamSubscription<String>? _stdoutSubscription;
   final _exitCompleter = Completer<void>();
   bool _cleanedUp = false;
   OfficialAndroidEngine? _officialAndroidEngine;
@@ -39,22 +34,6 @@ class Pikafish {
   String _nativeStdoutRemainder = '';
 
   Pikafish._({this.completer, required this.engineMode}) {
-    //
-    _mainSubscription = _mainPort.listen(
-      (message) => _cleanUp(message is int ? message : 1),
-    );
-
-    _stdoutSubscription = _stdoutPort.listen(
-      (message) {
-        if (message is String) {
-          if (_stdoutController.isClosed) return;
-          _stdoutController.sink.add(message);
-        } else {
-          prt('[pikafish] The stdout isolate sent $message');
-        }
-      },
-    );
-
     _start().then(
       (success) {
         if (_cleanedUp) return;
@@ -72,7 +51,7 @@ class Pikafish {
       onError: (error) {
         if (_cleanedUp) return;
 
-        prt('[pikafish] The init isolate encountered an error $error');
+        prt('[pikafish] Engine initialization encountered an error $error');
         _cleanUp(1);
       },
     );
@@ -216,8 +195,8 @@ class Pikafish {
       _stdoutController.close();
     }
 
-    _mainSubscription.cancel();
-    _stdoutSubscription.cancel();
+    _stdoutSubscription?.cancel();
+    _stdoutSubscription = null;
 
     _state._setValue(
       exitCode == 0 ? PikafishState.disposed : PikafishState.error,
@@ -269,7 +248,7 @@ class Pikafish {
     if (Platform.isAndroid) {
       final engine = OfficialAndroidEngine();
       _officialAndroidEngine = engine;
-      _stdoutSubscription.cancel();
+      _stdoutSubscription?.cancel();
       _stdoutSubscription = engine.stdout.listen(
         (line) {
           if (!_stdoutController.isClosed) {
@@ -288,7 +267,7 @@ class Pikafish {
     if (Platform.isWindows || Platform.isLinux) {
       final engine = OfficialDesktopEngine();
       _officialDesktopEngine = engine;
-      _stdoutSubscription.cancel();
+      _stdoutSubscription?.cancel();
       _stdoutSubscription = engine.stdout.listen(
         (line) {
           if (!_stdoutController.isClosed) {
@@ -316,16 +295,8 @@ class Pikafish {
       return true;
     }
 
-    final success = await compute(
-      _spawnIsolates,
-      [_mainPort.sendPort, _stdoutPort.sendPort],
-    );
-    if (_disposed && success) {
-      nativeShutdown();
-      return false;
-    }
-
-    return success;
+    prt('[pikafish] Unsupported platform: ${Platform.operatingSystem}');
+    return false;
   }
 
   void _startNativeStdoutPolling() {
@@ -350,9 +321,8 @@ class Pikafish {
       final pointer = nativeStdoutTryRead();
       if (pointer.address == 0) return;
 
-      final chunk = const Utf8Decoder(allowMalformed: true).convert(
-        _readNativeBytes(pointer),
-      );
+      final chunk =
+          utf8.decode(_readNativeBytes(pointer), allowMalformed: true);
       final data = _nativeStdoutRemainder + chunk;
       final lines = data.split('\n');
       _nativeStdoutRemainder = lines.removeLast();
@@ -402,40 +372,6 @@ class _PikafishState extends ChangeNotifier
   }
 }
 
-void _isolateMain(SendPort mainPort) async {
-  await _allowIsolateDebugCheckIn();
-
-  final exitCode = nativeMain();
-  mainPort.send(exitCode);
-
-  prt('[pikafish] nativeMain returns $exitCode');
-}
-
-void _isolateStdout(SendPort stdoutPort) async {
-  await _allowIsolateDebugCheckIn();
-
-  final lineSink = _PikafishStdoutLineSink(stdoutPort);
-  final decoder =
-      const Utf8Decoder(allowMalformed: true).startChunkedConversion(lineSink);
-
-  while (true) {
-    try {
-      //
-      final pointer = nativeStdoutRead();
-
-      if (pointer.address == 0) {
-        prt('[pikafish] nativeStdoutRead returns NULL');
-        decoder.close();
-        return;
-      }
-
-      decoder.add(_readNativeBytes(pointer));
-    } catch (e) {
-      prt('[pikafish] The stdout isolate encountered an error $e');
-    }
-  }
-}
-
 Uint8List _readNativeBytes(Pointer<Utf8> pointer) {
   final bytePointer = pointer.cast<Uint8>();
   var length = 0;
@@ -443,94 +379,6 @@ Uint8List _readNativeBytes(Pointer<Utf8> pointer) {
     length++;
   }
   return Uint8List.fromList(bytePointer.asTypedList(length));
-}
-
-class _PikafishStdoutLineSink extends StringConversionSinkBase {
-  _PikafishStdoutLineSink(this.stdoutPort);
-
-  final SendPort stdoutPort;
-  String _previous = '';
-
-  @override
-  void addSlice(String chunk, int start, int end, bool isLast) {
-    final data = _previous + chunk.substring(start, end);
-    final lines = data.split('\n');
-    _previous = lines.removeLast();
-
-    for (final line in lines) {
-      stdoutPort.send(line);
-    }
-
-    if (isLast) {
-      close();
-    }
-  }
-
-  @override
-  void close() {
-    if (_previous.isNotEmpty) {
-      stdoutPort.send(_previous);
-      _previous = '';
-    }
-  }
-}
-
-Future<bool> _spawnIsolates(List<SendPort> mainAndStdout) async {
-  //
-  final initResult = nativeInit();
-
-  if (initResult != 0) {
-    prt('[pikafish] initResult=$initResult');
-    return false;
-  }
-
-  try {
-    await _spawnNativeIsolate(
-      _isolateStdout,
-      mainAndStdout[1],
-      'pikafish_stdout',
-    );
-  } catch (error) {
-    prt('[pikafish] Failed to spawn stdout isolate: $error');
-    return false;
-  }
-
-  try {
-    await _spawnNativeIsolate(
-      _isolateMain,
-      mainAndStdout[0],
-      'pikafish_main',
-    );
-  } catch (error) {
-    prt('[pikafish] Failed to spawn main isolate: $error');
-    return false;
-  }
-
-  return true;
-}
-
-Future<void> _spawnNativeIsolate(
-  void Function(SendPort) entryPoint,
-  SendPort port,
-  String debugName,
-) async {
-  final isolate = await Isolate.spawn(
-    entryPoint,
-    port,
-    debugName: debugName,
-    paused: kDebugMode,
-  );
-
-  if (kDebugMode) {
-    await Future<void>.delayed(const Duration(milliseconds: 100));
-    isolate.resume(isolate.pauseCapability!);
-  }
-}
-
-Future<void> _allowIsolateDebugCheckIn() {
-  return Future<void>.delayed(
-    kDebugMode ? const Duration(milliseconds: 100) : Duration.zero,
-  );
 }
 
 void prt(String message) {
