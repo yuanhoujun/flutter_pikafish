@@ -26,6 +26,10 @@ class OfficialAndroidEngine {
     return _methodChannel.invokeMethod<void>('write', {'line': line});
   }
 
+  Future<void> terminateImmediately() {
+    return _methodChannel.invokeMethod<void>('terminateImmediately');
+  }
+
   Future<void> dispose() {
     return _methodChannel.invokeMethod<void>('dispose');
   }

@@ -61,7 +61,31 @@ class OfficialDesktopEngine {
     process.stdin.writeln(line);
   }
 
-  Future<void> dispose() async {
+  /// Requests the engine to quit and terminates its process without waiting.
+  ///
+  /// This is only intended for the application exit path, where waiting for
+  /// stream cleanup or an exit code would delay the host application's exit.
+  void terminateImmediately() {
+    final process = _process;
+    _process = null;
+    if (process == null) return;
+
+    try {
+      process.stdin.writeln('quit');
+    } on Object {
+      // The process may already have closed stdin.
+    }
+
+    try {
+      process.kill();
+    } on Object {
+      // The host application is exiting, so process termination is best effort.
+    }
+  }
+
+  Future<void> dispose({
+    Duration timeout = const Duration(seconds: 2),
+  }) async {
     final process = _process;
     _process = null;
 
@@ -78,7 +102,7 @@ class OfficialDesktopEngine {
     try {
       process.stdin.writeln('quit');
       await process.stdin.flush();
-      await process.exitCode.timeout(const Duration(seconds: 2));
+      await process.exitCode.timeout(timeout);
     } on Object {
       process.kill();
     }

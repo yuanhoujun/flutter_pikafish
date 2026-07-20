@@ -1,6 +1,7 @@
 package cn.chessroad.pikafish_engine;
 
 import android.content.Context;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -68,6 +69,10 @@ public class PikafishEnginePlugin
         break;
       case "dispose":
         disposeProcess();
+        result.success(null);
+        break;
+      case "terminateImmediately":
+        terminateProcessImmediately();
         result.success(null);
         break;
       default:
@@ -196,6 +201,31 @@ public class PikafishEnginePlugin
     }
     if (process != null) {
       process.destroy();
+      process = null;
+    }
+    if (outputThread != null) {
+      outputThread.interrupt();
+      outputThread = null;
+    }
+  }
+
+  private synchronized void terminateProcessImmediately() {
+    if (processInput != null) {
+      try {
+        processInput.write("quit");
+        processInput.newLine();
+        processInput.flush();
+      } catch (IOException ignored) {
+        // Process termination continues even when stdin is already closed.
+      }
+      processInput = null;
+    }
+    if (process != null) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        process.destroyForcibly();
+      } else {
+        process.destroy();
+      }
       process = null;
     }
     if (outputThread != null) {

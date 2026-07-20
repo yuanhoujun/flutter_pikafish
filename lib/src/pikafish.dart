@@ -128,6 +128,35 @@ class Pikafish {
     unawaited(disposeAsync());
   }
 
+  /// Requests an immediate engine shutdown without waiting for cleanup.
+  ///
+  /// Desktop process engines are terminated after receiving `quit`. Embedded
+  /// engines only receive `quit`; the host process will exit immediately after
+  /// this call.
+  void terminateImmediately() {
+    _disposed = true;
+
+    final androidEngine = _officialAndroidEngine;
+    if (androidEngine != null) {
+      unawaited(androidEngine.terminateImmediately());
+      return;
+    }
+
+    final desktopEngine = _officialDesktopEngine;
+    if (desktopEngine != null) {
+      desktopEngine.terminateImmediately();
+      return;
+    }
+
+    if (_state.value == PikafishState.ready) {
+      try {
+        stdin = 'quit';
+      } on Object {
+        // The host application is exiting, so notification is best effort.
+      }
+    }
+  }
+
   Future<void> disposeAsync(
       {Duration timeout = const Duration(seconds: 2)}) async {
     _disposed = true;
@@ -145,7 +174,7 @@ class Pikafish {
 
     final desktopEngine = _officialDesktopEngine;
     if (desktopEngine != null) {
-      await desktopEngine.dispose();
+      await desktopEngine.dispose(timeout: timeout);
       _cleanUp(0);
       return;
     }
