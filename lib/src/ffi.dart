@@ -21,6 +21,13 @@ DynamicLibrary _openNativeLibrary() {
     return DynamicLibrary.open('pikafish_engine.framework/pikafish_engine');
   }
 
+  if (Platform.isWindows) {
+    // The engine is built into the self-contained pikafish_core.dll (MSYS2
+    // clang64, statically linked libc++), which is bundled next to the
+    // application executable.
+    return DynamicLibrary.open('pikafish_core.dll');
+  }
+
   return DynamicLibrary.process();
 }
 

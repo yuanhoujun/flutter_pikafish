@@ -293,7 +293,7 @@ class Pikafish {
       return engine.start(engineMode);
     }
 
-    if (Platform.isWindows || Platform.isLinux) {
+    if (Platform.isLinux) {
       final engine = OfficialDesktopEngine();
       _officialDesktopEngine = engine;
       _stdoutSubscription?.cancel();
@@ -312,7 +312,7 @@ class Pikafish {
       return engine.start(engineMode);
     }
 
-    if (Platform.isMacOS || Platform.isIOS) {
+    if (Platform.isMacOS || Platform.isIOS || Platform.isWindows) {
       final startResult = nativeStartThreaded();
       if (startResult != 0) {
         prt('[pikafish] nativeStartThreaded result=$startResult');

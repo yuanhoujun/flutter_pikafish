@@ -6,6 +6,11 @@ import 'package:flutter/services.dart';
 
 import 'pikafish_engine_mode.dart';
 
+/// Runs an official prebuilt Pikafish binary as a child process.
+///
+/// This is only used on Linux. Windows compiles the engine from source into
+/// the plugin DLL (same embedded approach as macOS), and macOS/iOS embed the
+/// engine through FFI directly.
 class OfficialDesktopEngine {
   static const _packageAssetPrefix = 'packages/pikafish_engine/assets';
 
@@ -17,7 +22,7 @@ class OfficialDesktopEngine {
   Stream<String> get stdout => _stdoutController.stream;
 
   Future<bool> start(PikafishEngineMode mode) async {
-    if (!Platform.isWindows && !Platform.isLinux) {
+    if (!Platform.isLinux) {
       return false;
     }
 
@@ -119,31 +124,29 @@ class OfficialDesktopEngine {
   }
 
   String _binaryNameForMode(PikafishEngineMode mode) {
-    final suffix = Platform.isWindows ? '.exe' : '';
-
     switch (mode) {
       case PikafishEngineMode.officialBmi2:
-        return 'pikafish-bmi2$suffix';
+        return 'pikafish-bmi2';
       case PikafishEngineMode.officialAvx2:
-        return 'pikafish-avx2$suffix';
+        return 'pikafish-avx2';
       case PikafishEngineMode.officialAvx512:
-        return 'pikafish-avx512$suffix';
+        return 'pikafish-avx512';
       case PikafishEngineMode.officialAvx512Icl:
-        return 'pikafish-avx512icl$suffix';
+        return 'pikafish-avx512icl';
       case PikafishEngineMode.officialAvxVnni:
-        return 'pikafish-avxvnni$suffix';
+        return 'pikafish-avxvnni';
       case PikafishEngineMode.officialVnni512:
-        return 'pikafish-vnni512$suffix';
+        return 'pikafish-vnni512';
       case PikafishEngineMode.auto:
       case PikafishEngineMode.officialSse41Popcnt:
       case PikafishEngineMode.officialArmv8:
       case PikafishEngineMode.officialDotProd:
-        return 'pikafish-sse41-popcnt$suffix';
+        return 'pikafish-sse41-popcnt';
     }
   }
 
   Future<File> _prepareExecutable(String binaryName) async {
-    final platformDir = Platform.isWindows ? 'windows' : 'linux';
+    const platformDir = 'linux';
     final bytes = await rootBundle.load(
       '$_packageAssetPrefix/$platformDir/$binaryName',
     );
@@ -154,14 +157,12 @@ class OfficialDesktopEngine {
     await executable.parent.create(recursive: true);
     await executable.writeAsBytes(bytes.buffer.asUint8List(), flush: true);
 
-    if (!Platform.isWindows) {
-      final chmod = await Process.run('chmod', <String>[
-        '755',
-        executable.path,
-      ]);
-      if (chmod.exitCode != 0) {
-        throw StateError('Failed to mark Pikafish executable as runnable');
-      }
+    final chmod = await Process.run('chmod', <String>[
+      '755',
+      executable.path,
+    ]);
+    if (chmod.exitCode != 0) {
+      throw StateError('Failed to mark Pikafish executable as runnable');
     }
 
     return executable;
