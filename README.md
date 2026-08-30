@@ -1,6 +1,14 @@
 # flutter_pikafish
 The Flutter plugin for PIKAFISH (base on Stockfish), A well-known Chinese chess open source engine.
 
+## Branch scope
+
+The `plus` branch is mobile-only and registers Android and iOS only. Keep the
+official prebuilt `libpikafish_armv8_exec.so` and
+`libpikafish_dotprod_exec.so` binaries unchanged on this branch. Desktop
+support belongs to the dedicated `desktop` branch, and Android 16 KiB
+page-size work belongs to its dedicated branch.
+
 # Usages 
 
 iOS project must have IPHONEOS_DEPLOYMENT_TARGET >=11.0.

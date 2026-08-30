@@ -20,10 +20,8 @@ dev_dependencies:
   flutter_lints: ^2.0.0
 
 flutter:
-  assets:
-    - assets/linux/
-    - assets/windows/
-
+  # The plus branch is mobile-only. Desktop engines stay out of the global
+  # asset list so Android and iOS never package unused Windows/Linux binaries.
   plugin:
     platforms:
       android:
@@ -31,11 +29,3 @@ flutter:
         pluginClass: PikafishEnginePlugin
       ios:
         pluginClass: PikafishEnginePlugin
-      macos:
-        pluginClass: PikafishEnginePlugin
-      windows:
-        dartPluginClass: PikafishEngineDartPlugin
-        dartFileName: src/pikafish_engine_dart_plugin.dart
-      linux:
-        dartPluginClass: PikafishEngineDartPlugin
-        dartFileName: src/pikafish_engine_dart_plugin.dart
