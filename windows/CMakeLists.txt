@@ -204,3 +204,9 @@ else()
 
   target_link_libraries(${PLUGIN_NAME} PRIVATE flutter flutter_wrapper_plugin)
 endif()
+
+# The MSYS2 engine above already uses -DNDEBUG. Also cover the plugin target
+# and engines compiled directly by non-MSVC toolchains in shipping builds.
+target_compile_definitions(${PLUGIN_NAME} PRIVATE
+  "$<$<CONFIG:Release,Profile,RelWithDebInfo,MinSizeRel>:NDEBUG=1>"
+)
