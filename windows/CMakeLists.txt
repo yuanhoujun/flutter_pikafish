@@ -20,6 +20,18 @@ set(PLUGIN_NAME "pikafish_engine_plugin")
 set(PIKAFISH_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ios/Pikafish/src")
 set(PIKAFISH_FFI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ios/FlutterPikafish")
 
+# Compile a patched copy of the NNUE file loader; leave official sources clean.
+set(PIKAFISH_PATCHED_MISC "${CMAKE_CURRENT_BINARY_DIR}/patched_pikafish/misc.cpp")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  "${PIKAFISH_SRC_DIR}/misc.cpp")
+# Isolate the patch script's INPUT/OUTPUT and temporary variables.
+function(prepare_pikafish_unicode_loader)
+  set(INPUT "${PIKAFISH_SRC_DIR}/misc.cpp")
+  set(OUTPUT "${PIKAFISH_PATCHED_MISC}")
+  include("${CMAKE_CURRENT_SOURCE_DIR}/patches/windows-unicode-nnue.cmake")
+endfunction()
+prepare_pikafish_unicode_loader()
+
 # Pikafish engine sources.
 #
 # Notes (mirroring the official Makefile, `make COMP=clang ARCH=x86-64`):
@@ -36,7 +48,7 @@ set(PIKAFISH_ENGINE_SOURCES
   "${PIKAFISH_SRC_DIR}/engine.cpp"
   "${PIKAFISH_SRC_DIR}/evaluate.cpp"
   "${PIKAFISH_SRC_DIR}/memory.cpp"
-  "${PIKAFISH_SRC_DIR}/misc.cpp"
+  "${PIKAFISH_PATCHED_MISC}"
   "${PIKAFISH_SRC_DIR}/movegen.cpp"
   "${PIKAFISH_SRC_DIR}/movepick.cpp"
   "${PIKAFISH_SRC_DIR}/position.cpp"
@@ -113,9 +125,9 @@ if(MSVC)
     -c -std=c++17 -fno-exceptions -O3 -funroll-loops -DNDEBUG
     -Wa,-mbig-obj
     -D_CRT_SECURE_NO_WARNINGS
-    -I"${PIKAFISH_SRC_DIR}"
-    -I"${PIKAFISH_SRC_DIR}/external"
-    -I"${PIKAFISH_FFI_DIR}"
+    "-I${PIKAFISH_SRC_DIR}"
+    "-I${PIKAFISH_SRC_DIR}/external"
+    "-I${PIKAFISH_FFI_DIR}"
   )
 
   foreach(_src IN LISTS PIKAFISH_ENGINE_SOURCES)
