@@ -14,6 +14,8 @@ Pod::Spec.new do |s|
   s.author           = { 'He Zhaoyun' => 'hezhaoyun@outlook.com' }
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*', 'Pikafish/src/**/*', 'FlutterPikafish/*'
+  # iOS enters through FlutterPikafish/ffi.cpp, without CLI dispatchers.
+  s.exclude_files = 'Pikafish/src/main.cpp', 'Pikafish/src/universal/**/*'
   s.public_header_files = 'Classes/**/*.h'
   s.dependency 'Flutter'
   s.platform = :ios, '9.0'
@@ -37,6 +39,6 @@ Pod::Spec.new do |s|
   s.xcconfig = {
     'CLANG_CXX_LANGUAGE_STANDARD' => 'c++17',
     'CLANG_CXX_LIBRARY' => 'libc++',
-    'OTHER_CPLUSPLUSFLAGS' => '$(inherited) -w'
+    'OTHER_CPLUSPLUSFLAGS' => '$(inherited) -w -DIS_64BIT'
   }
 end

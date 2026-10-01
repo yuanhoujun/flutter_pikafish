@@ -8,8 +8,9 @@
 #include <streambuf>
 #include <string>
 #include <thread>
+#include <utility>
 
-#include "../Pikafish/src/bitboard.h"
+#include "../Pikafish/src/attacks.h"
 #include "../Pikafish/src/misc.h"
 #include "../Pikafish/src/position.h"
 #include "../Pikafish/src/search.h"
@@ -166,13 +167,14 @@ int runPikafishEngine()
 
     std::cout << engine_info() << std::endl;
 
-    Bitboards::init();
+    Attacks::init();
     Position::init();
 
     int argc = 1;
     char arg0[] = "";
     char *argv[] = {arg0, NULL};
-    auto uci = std::make_unique<UCIEngine>(argc, argv);
+    auto cli = CommandLine(argc, argv);
+    auto uci = std::make_unique<UCIEngine>(std::move(cli));
 
     Tune::init(uci->engine_options());
 

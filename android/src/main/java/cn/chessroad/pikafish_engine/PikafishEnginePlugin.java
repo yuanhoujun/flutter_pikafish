@@ -14,7 +14,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.util.Locale;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.plugin.common.EventChannel;
@@ -26,8 +25,7 @@ public class PikafishEnginePlugin
     implements FlutterPlugin, MethodChannel.MethodCallHandler, EventChannel.StreamHandler {
   private static final String METHOD_CHANNEL = "cn.chessroad.pikafish_engine/methods";
   private static final String EVENT_CHANNEL = "cn.chessroad.pikafish_engine/stdout";
-  private static final String ARMV8_BINARY = "libpikafish_armv8_exec.so";
-  private static final String DOTPROD_BINARY = "libpikafish_dotprod_exec.so";
+  private static final String UNIVERSAL_BINARY = "libpikafish_universal_exec.so";
   private static final String TAG = "PikafishEngine";
 
   private Context context;
@@ -96,21 +94,9 @@ public class PikafishEnginePlugin
       return;
     }
 
-    String binaryName;
-    if ("officialArmv8".equals(mode)) {
-      binaryName = ARMV8_BINARY;
-    } else if ("officialDotProd".equals(mode)) {
-      if (!supportsDotProd()) {
-        result.error("unsupported_cpu", "This device does not support ARM DotProd", null);
-        return;
-      }
-      binaryName = DOTPROD_BINARY;
-    } else {
-      binaryName = supportsDotProd() ? DOTPROD_BINARY : ARMV8_BINARY;
-    }
-
-    String engineVariant = DOTPROD_BINARY.equals(binaryName) ? "DotProd" : "ARMv8";
-    String selectionMessage = "Using official Pikafish " + engineVariant + " engine";
+    // Legacy mode names remain accepted; the universal engine selects its ISA.
+    String binaryName = UNIVERSAL_BINARY;
+    String selectionMessage = "Using official Pikafish 20260925 universal engine";
     Log.i(TAG, selectionMessage);
 
     File binary = new File(context.getApplicationInfo().nativeLibraryDir, binaryName);
@@ -234,16 +220,4 @@ public class PikafishEnginePlugin
     }
   }
 
-  private boolean supportsDotProd() {
-    try {
-      Process cpuInfo = new ProcessBuilder("sh", "-c", "grep -m1 Features /proc/cpuinfo").start();
-      try (BufferedReader reader = new BufferedReader(new InputStreamReader(cpuInfo.getInputStream()))) {
-        String features = reader.readLine();
-        return features != null
-            && features.toLowerCase(Locale.US).contains("asimddp");
-      }
-    } catch (IOException ignored) {
-      return false;
-    }
-  }
 }

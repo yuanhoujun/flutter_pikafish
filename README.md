@@ -3,11 +3,17 @@ The Flutter plugin for PIKAFISH (base on Stockfish), A well-known Chinese chess 
 
 ## Branch scope
 
-The `plus` branch is mobile-only and registers Android and iOS only. Keep the
-official prebuilt `libpikafish_armv8_exec.so` and
-`libpikafish_dotprod_exec.so` binaries unchanged on this branch. Desktop
-support belongs to the dedicated `desktop` branch, and Android 16 KiB
-page-size work belongs to its dedicated branch.
+The `plus` branch registers Android and iOS only. Android bundles the official
+20260925 `libpikafish_universal_exec.so`; the engine selects the CPU instruction
+set automatically. Legacy `officialArmv8` and `officialDotProd` mode values both
+launch this universal binary.
+
+iOS builds the official GitHub `Pikafish-2026-09-06` release at
+`4c17cee11f888ae1d48a9494f2e2239f019f0a1f` from the `ios/Pikafish` submodule.
+Initialize it with `git submodule update --init --recursive`.
+Both platforms use the 20260925 `pikafish.nnue` (MD5
+`43819bf90a990918a71897339b3b9cb9`), also included in the example app.
+Desktop support belongs to the dedicated `desktop` branch.
 
 # Usages 
 
@@ -26,7 +32,7 @@ Init engine
 ``` dart
 import 'package:pikafish_engine/pikafish_engine.dart';
 
-// Android automatically selects the official DotProd or ARMv8 executable.
+// Android uses the official universal executable with automatic ISA selection.
 // Other platforms continue to use FFI.
 final pikafish = Pikafish();
 

@@ -35,8 +35,7 @@ android {
         jniLibs {
             useLegacyPackaging true
         }
-        doNotStrip '**/libpikafish_armv8_exec.so'
-        doNotStrip '**/libpikafish_dotprod_exec.so'
+        doNotStrip '**/libpikafish_universal_exec.so'
     }
     lintOptions {
         disable 'InvalidPackage'

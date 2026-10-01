@@ -1,15 +1,15 @@
 /// Selects how Pikafish runs.
 enum PikafishEngineMode {
-  /// Uses the official Android executable and selects DotProd when supported.
+  /// Uses the official universal Android executable with automatic ISA selection.
   ///
   /// Windows and Linux select the broadly compatible SSE4.1/POPCNT executable.
   /// iOS always uses the bundled FFI engine.
   auto,
 
-  /// Uses the official generic ARMv8 Android executable.
+  /// Legacy Android mode; now uses the universal executable.
   officialArmv8,
 
-  /// Uses the official ARMv8 DotProd Android executable.
+  /// Legacy Android mode; now uses the universal executable.
   officialDotProd,
 
   /// Uses the official SSE4.1/POPCNT desktop executable.
