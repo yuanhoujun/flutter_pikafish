@@ -1,3 +1,8 @@
+## Unreleased
+
+* Temporarily remove Linux support and its seven bundled executables, reducing
+  packaged Flutter assets by approximately 5.26 MB on every platform.
+
 ## 1.0.1
 
 * First public release.

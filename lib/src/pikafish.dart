@@ -9,7 +9,6 @@ import 'package:flutter/foundation.dart';
 
 import 'ffi.dart';
 import 'official_android_engine.dart';
-import 'official_desktop_engine.dart';
 import 'pikafish_engine_mode.dart';
 import 'pikafish_state.dart';
 
@@ -27,7 +26,6 @@ class Pikafish {
   final _exitCompleter = Completer<void>();
   bool _cleanedUp = false;
   OfficialAndroidEngine? _officialAndroidEngine;
-  OfficialDesktopEngine? _officialDesktopEngine;
   bool _disposed = false;
   bool _threadedNativeEngine = false;
   Timer? _nativeStdoutTimer;
@@ -93,10 +91,6 @@ class Pikafish {
     if (officialEngine != null) {
       prt('engine=< $line');
       officialEngine.write(line);
-    } else if (_officialDesktopEngine != null) {
-      prt('engine=< $line');
-      final desktopEngine = _officialDesktopEngine!;
-      desktopEngine.write(line);
     } else {
       final pointer = '$line\n'.toNativeUtf8();
       final result = nativeStdinWrite(pointer);
@@ -142,12 +136,6 @@ class Pikafish {
       return;
     }
 
-    final desktopEngine = _officialDesktopEngine;
-    if (desktopEngine != null) {
-      desktopEngine.terminateImmediately();
-      return;
-    }
-
     if (_state.value == PikafishState.ready) {
       try {
         stdin = 'quit';
@@ -168,13 +156,6 @@ class Pikafish {
     final officialEngine = _officialAndroidEngine;
     if (officialEngine != null) {
       await officialEngine.dispose();
-      _cleanUp(0);
-      return;
-    }
-
-    final desktopEngine = _officialDesktopEngine;
-    if (desktopEngine != null) {
-      await desktopEngine.dispose(timeout: timeout);
       _cleanUp(0);
       return;
     }
@@ -202,10 +183,7 @@ class Pikafish {
     final officialEngine = _officialAndroidEngine;
     if (officialEngine != null) {
       officialEngine.dispose();
-    } else if (_officialDesktopEngine != null) {
-      final desktopEngine = _officialDesktopEngine!;
-      desktopEngine.dispose();
-    } else {
+    } else if (Platform.isMacOS || Platform.isIOS || Platform.isWindows) {
       nativeShutdown();
       if (_threadedNativeEngine) {
         nativeJoinThreaded();
@@ -251,13 +229,6 @@ class Pikafish {
       return;
     }
 
-    final desktopEngine = _officialDesktopEngine;
-    if (desktopEngine != null) {
-      await desktopEngine.dispose();
-      _cleanUp(0);
-      return;
-    }
-
     if (_state.value == PikafishState.ready) {
       stdin = 'quit';
       try {
@@ -286,25 +257,6 @@ class Pikafish {
         },
         onError: (Object error) {
           prt('[pikafish] Official Android engine output error: $error');
-          _cleanUp(1);
-        },
-        onDone: () => _cleanUp(0),
-      );
-      return engine.start(engineMode);
-    }
-
-    if (Platform.isLinux) {
-      final engine = OfficialDesktopEngine();
-      _officialDesktopEngine = engine;
-      _stdoutSubscription?.cancel();
-      _stdoutSubscription = engine.stdout.listen(
-        (line) {
-          if (!_stdoutController.isClosed) {
-            _stdoutController.sink.add(line);
-          }
-        },
-        onError: (Object error) {
-          prt('[pikafish] Official desktop engine output error: $error');
           _cleanUp(1);
         },
         onDone: () => _cleanUp(0),

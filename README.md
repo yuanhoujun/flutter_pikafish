@@ -1,6 +1,8 @@
 # flutter_pikafish
 The Flutter plugin for PIKAFISH (base on Stockfish), A well-known Chinese chess open source engine.
 
+Supported platforms: Android, iOS, macOS and Windows. Linux is currently unsupported.
+
 # Usages 
 
 iOS project must have IPHONEOS_DEPLOYMENT_TARGET >=11.0.
