@@ -69,6 +69,20 @@ private:
 class OutputBuffer : public std::streambuf
 {
 public:
+    void setLuOutput(bool enabled)
+    {
+        std::lock_guard<std::mutex> lock(outputMutex);
+        luOutput = enabled;
+    }
+
+    void reset()
+    {
+        std::lock_guard<std::mutex> lock(outputMutex);
+        luOutput = true;
+        pending.clear();
+        outputQueue.clear();
+    }
+
     int overflow(int ch) override
     {
         if (ch == traits_type::eof())
@@ -76,11 +90,8 @@ public:
             return traits_type::not_eof(ch);
         }
 
-        {
-            std::lock_guard<std::mutex> lock(outputMutex);
-            outputQueue.push_back(static_cast<char>(ch));
-        }
-        outputCondition.notify_one();
+        const char byte = static_cast<char>(ch);
+        xsputn(&byte, 1);
         return ch;
     }
 
@@ -88,9 +99,13 @@ public:
     {
         {
             std::lock_guard<std::mutex> lock(outputMutex);
-            for (std::streamsize i = 0; i < n; ++i)
+            if (luOutput && pending.empty())
             {
-                outputQueue.push_back(s[i]);
+                outputQueue.insert(outputQueue.end(), s, s + n);
+            }
+            else
+            {
+                appendFilteredLines(s, n);
             }
         }
         outputCondition.notify_one();
@@ -102,6 +117,35 @@ public:
         outputCondition.notify_one();
         return 0;
     }
+
+private:
+    // UCI records may span several stream writes. Publish each complete
+    // record when bounds are disabled; retain any unfinished line until then.
+    void appendFilteredLines(const char *s, std::streamsize n)
+    {
+        const char *end = s + n;
+        while (s < end)
+        {
+            const auto *newline = static_cast<const char *>(std::memchr(s, '\n', end - s));
+            if (!newline)
+            {
+                pending.append(s, end - s);
+                return;
+            }
+            pending.append(s, newline + 1 - s);
+            if (luOutput || pending.compare(0, 11, "info depth ") != 0 ||
+                (pending.find(" upperbound ") == std::string::npos &&
+                 pending.find(" lowerbound ") == std::string::npos))
+            {
+                outputQueue.insert(outputQueue.end(), pending.begin(), pending.end());
+            }
+            pending.clear();
+            s = newline + 1;
+        }
+    }
+
+    bool luOutput = true;
+    std::string pending;
 };
 
 InputBuffer inputBuffer;
@@ -115,10 +159,7 @@ void clearQueues()
         std::lock_guard<std::mutex> lock(inputMutex);
         inputQueue.clear();
     }
-    {
-        std::lock_guard<std::mutex> lock(outputMutex);
-        outputQueue.clear();
-    }
+    outputBuffer.reset();
 }
 
 void pushOutput(const char *data)
@@ -176,6 +217,12 @@ int runPikafishEngine()
     auto cli = CommandLine(argc, argv);
     auto uci = std::make_unique<UCIEngine>(std::move(cli));
 
+    // This official engine release lacks the Android binary's LU_Output option.
+    // Use its native option parser and keep the setting confined to UCI output.
+    uci->engine_options().add("LU_Output", Option(true, [](const Option& value) {
+        outputBuffer.setLuOutput(static_cast<int>(value) != 0);
+        return std::nullopt;
+    }));
     Tune::init(uci->engine_options());
 
     uci->loop();
