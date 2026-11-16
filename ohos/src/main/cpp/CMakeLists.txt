@@ -1,10 +1,10 @@
-cmake_minimum_required(VERSION 3.5.0)
+cmake_minimum_required(VERSION 3.12)
 project(pikafish_engine LANGUAGES CXX)
 
 set(PLUGIN_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../../../..)
 set(PIKAFISH_ROOT ${PLUGIN_ROOT}/ios/Pikafish)
 
-file(GLOB_RECURSE PIKAFISH_SOURCES
+file(GLOB_RECURSE PIKAFISH_SOURCES CONFIGURE_DEPENDS
     "${PIKAFISH_ROOT}/src/*.cpp"
 )
 
