@@ -1,14 +1,14 @@
 {
-    "commentTranslate.source": "Google",
-    "cSpell.enableFiletypes": [
-        "!markdown"
-    ],
-    "files.associations": {
-        "concepts": "cpp",
-        "ios": "cpp",
-        "istream": "cpp",
-        "locale": "cpp",
-        "ostream": "cpp"
-    },
-    "dart.flutterSdkPath": ".fvm/versions/3.35.8-ohos"
+  "commentTranslate.source": "Google",
+  "cSpell.enableFiletypes": [
+    "!markdown"
+  ],
+  "files.associations": {
+    "concepts": "cpp",
+    "ios": "cpp",
+    "istream": "cpp",
+    "locale": "cpp",
+    "ostream": "cpp"
+  },
+  "dart.flutterSdkPath": ".fvm/versions/3.35.8-ohos-0.0.3"
 }
